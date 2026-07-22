@@ -1,3 +1,5 @@
 data/simulation/output/hpo_lmdb/shard_0/data.mdb
 wandb/**
-.cursor/**
+.cursor/**__pycache__/
+*.pyc
+.ipynb_checkpoints/
