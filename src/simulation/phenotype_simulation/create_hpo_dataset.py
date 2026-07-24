@@ -60,6 +60,7 @@ class HPOGraphDataset(Dataset):
         metadata_path = self.processed_path / "metadata.json"
         with open(metadata_path, 'r') as f:
             metadata = json.load(f)
+        self._metadata = metadata
         self._embedding_memmap = np.memmap(
             metadata['embedding_memmap_path'],
             dtype='float32',
@@ -71,6 +72,18 @@ class HPOGraphDataset(Dataset):
 
     def len(self):
         return len(self.index)
+
+    @property
+    def metadata(self) -> Dict:
+        """Returns the dataset metadata loaded from metadata.json."""
+        return self._metadata
+
+    @property
+    def num_classes(self) -> Optional[int]:
+        """Number of gene classes, inferred from metadata['genes']."""
+        if self._metadata and 'genes' in self._metadata:
+            return len(self._metadata['genes'])
+        return None
 
     def get(self, idx):
         """Load a graph by index."""

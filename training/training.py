@@ -14,13 +14,15 @@ import wandb # ADDED: For experiment tracking
 
 # Assuming the script is run from the workspace root
 from training.datasets.lmdb_hpo_dataset import LMDBHPOGraphDataset
+from src.simulation.phenotype_simulation.create_hpo_dataset import HPOGraphDataset
 from training.models.models import GenePhenAIv2_0, GenePhenAIv2_5, GenePhenAIv3_0
 
 # --- Argument Parsing ---
 parser = argparse.ArgumentParser(description="Train Phenotype GNN Model using LMDB Dataset")
 
 # Data Args
-parser.add_argument('--dataset_root', type=str, required=True, help='Path to the root directory of the LMDB dataset.')
+parser.add_argument('--dataset_root', type=str, required=True, help='Path to the root directory of the dataset.')
+parser.add_argument('--dataset_format', type=str, default='pt', choices=['pt', 'lmdb'], help='Dataset backend: "pt" for HPOGraphDataset (batch_*.pt + index.pt), "lmdb" for LMDBHPOGraphDataset.')
 parser.add_argument('--output_dir', type=str, default='training_output', help='Directory to save models, logs, and results.')
 parser.add_argument('--split_mode', type=str, default='random', choices=['random', 'precomputed'], help='Dataset split mode.') # Add 'gene_stratified' later
 parser.add_argument('--val_split', type=float, default=0.15, help='Fraction of data for validation (if split_mode=random).')
@@ -135,12 +137,18 @@ if device.type == 'cuda':
 # torch.backends.cudnn.benchmark = False
 
 # --- Data Loading and Splitting ---
-logger.info(f"Loading LMDB dataset from: {args.dataset_root}")
+logger.info(f"Loading '{args.dataset_format}' dataset from: {args.dataset_root}")
 try:
-    dataset = LMDBHPOGraphDataset(root_dir=args.dataset_root, readonly=True)
+    if args.dataset_format == 'lmdb':
+        dataset = LMDBHPOGraphDataset(root_dir=args.dataset_root, readonly=True)
+    else:
+        dataset = HPOGraphDataset(root_dir=args.dataset_root)
     logger.info(f"Dataset loaded successfully with {len(dataset)} samples.")
-except FileNotFoundError:
-    logger.error(f"LMDB database not found. Expected data.mdb either at {args.dataset_root}/data.mdb or {args.dataset_root}/hpo_lmdb/data.mdb. Please run convert_to_lmdb.py first.")
+except FileNotFoundError as e:
+    if args.dataset_format == 'lmdb':
+        logger.error(f"LMDB database not found. Expected data.mdb either at {args.dataset_root}/data.mdb or {args.dataset_root}/hpo_lmdb/data.mdb. Please run convert_to_lmdb.py first.")
+    else:
+        logger.error(f"Dataset files not found: {e}")
     exit(1)
 except Exception as e:
     logger.error(f"Error loading dataset: {e}")
