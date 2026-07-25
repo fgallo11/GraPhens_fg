@@ -68,7 +68,35 @@ class HPOGraphDataset(Dataset):
             shape=(metadata['num_embeddings'], metadata['embedding_dim'])
         )
 
+        # Preload every batch_N.pt once into RAM so get() never hits torch.load
+        # again. Only the compact per-graph fields are kept (int64 index
+        # tensors, not expanded (N, 768) embeddings), see get() below.
+        self._cache: Dict[str, Tuple[torch.Tensor, torch.Tensor, str, List[str]]] = {}
+        num_batches = metadata['num_batches']
+        for file_idx in range(num_batches):
+            batch_path = self.processed_path / f"batch_{file_idx}.pt"
+            batch_data = torch.load(batch_path)
+            for key, data in batch_data.items():
+                self._cache[key] = (data.x, data.edge_index, data.gene, data.phenotype_ids)
+            del batch_data
+        rss_mb = self._current_rss_mb()
+        logger.info(
+            f"Preloaded {len(self._cache)} graphs from {num_batches} batch files into RAM"
+            + (f" (RSS={rss_mb:.1f} MB)" if rss_mb is not None else "")
+        )
+
         logger.info(f"Loaded HPO graph dataset with {len(self.index)} samples")
+
+    @staticmethod
+    def _current_rss_mb() -> Optional[float]:
+        try:
+            with open('/proc/self/status') as f:
+                for line in f:
+                    if line.startswith('VmRSS:'):
+                        return int(line.split()[1]) / 1024
+        except (FileNotFoundError, OSError):
+            pass
+        return None
 
     def len(self):
         return len(self.index)
@@ -88,14 +116,11 @@ class HPOGraphDataset(Dataset):
     def get(self, idx):
         """Load a graph by index."""
         gene, case_id, file_idx = self.index[idx]
-        # Use our own Path objects for file operations
-        data_path = self.processed_path / f"batch_{file_idx}.pt"
 
-        # Load the specific batch file that contains our graph
-        batch_data = torch.load(data_path)
-
-        # Get the specific graph from the batch
-        data = batch_data[f"{gene}_{case_id}"]
+        # Read the raw graph fields from the in-RAM cache built in __init__
+        # (no torch.load on the hot path).
+        x_idx, edge_index, gene, phenotype_ids = self._cache[f"{gene}_{case_id}"]
+        data = Data(x=x_idx, edge_index=edge_index, gene=gene, phenotype_ids=phenotype_ids)
 
         # Expand the stored node indices into real embeddings via the shared memmap
         embeddings = self._embedding_memmap[data.x.numpy()]
