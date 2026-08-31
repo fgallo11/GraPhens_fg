@@ -150,11 +150,12 @@ def convert_to_dataset(
     embedding_lookup_path: str = "data/embeddings/hpo_embeddings_latest.pkl",
     include_ancestors: bool = True,
     include_reverse_edges: bool = True,
-    clear_existing: bool = False
+    clear_existing: bool = False,
+    no_siblings: bool = False
 ):
     """
     Convert simulated patient data from JSON to PyTorch Geometric dataset.
-    
+
     Args:
         input_json: Path to input JSON file with simulated patient data
         output_dir: Directory to save processed dataset
@@ -164,6 +165,9 @@ def convert_to_dataset(
         include_ancestors: Whether to augment with ancestor HPO terms
         include_reverse_edges: Whether to include reverse edges in the graph
         clear_existing: Whether to clear existing processed files
+        no_siblings: If True, use ancestors-only augmentation (pre-150f639
+            strategy), skipping the siblings step. For comparability against
+            checkpoints trained before the siblings augmentation was added.
     """
     total_start_time = time.time()
     
@@ -184,12 +188,22 @@ def convert_to_dataset(
     # Initialize GraPhens with configuration for our task
     start_time = time.time()
     logger.info("Initializing GraPhens...")
+    if no_siblings:
+        # Pre-150f639 strategy: ancestors only, no siblings. Kept for
+        # comparability against checkpoints trained before siblings
+        # augmentation existed (e.g. Gian's best_model.pt).
+        augmentation_strategy = [
+            {"type": "local", "include_ancestors": True, "include_descendants": False}
+        ]
+    else:
+        augmentation_strategy = [
+            {"type": "siblings"},
+            {"type": "local", "include_ancestors": True, "include_descendants": False}
+        ]
+
     graphens = (GraPhens()
                 .with_lookup_embeddings(embedding_lookup_path)
-                .with_augmentation(strategy=[
-                    {"type": "siblings"},
-                    {"type": "local", "include_ancestors": True, "include_descendants": False}
-                ])
+                .with_augmentation(strategy=augmentation_strategy)
                 .with_adjacency_settings(include_reverse_edges=include_reverse_edges))
     logger.info(f"GraPhens initialization took {time.time() - start_time:.2f} seconds")
 
@@ -370,6 +384,8 @@ def convert_to_dataset(
         'embedding_lookup': embedding_lookup_path,
         'include_ancestors': include_ancestors,
         'include_reverse_edges': include_reverse_edges,
+        'no_siblings': no_siblings,
+        'augmentation_strategy': augmentation_strategy,
         'embedding_memmap_path': embedding_memmap_path,
         'embedding_dim': embedding_dim,
         'num_embeddings': len(hpo_to_global_idx),
@@ -572,6 +588,10 @@ if __name__ == "__main__":
     parser.add_argument("--embeddings", type=str, default="data/embeddings/hpo_embeddings_gsarti_biobert-nli_20250317_162424.pkl", 
                         help="Path to pre-computed HPO embeddings")
     parser.add_argument("--no-ancestors", action="store_true", help="Don't include ancestor terms")
+    parser.add_argument("--no-siblings", action="store_true",
+                        help="Use ancestors-only augmentation (pre-150f639 strategy), skipping "
+                             "the siblings step. For comparability against checkpoints trained "
+                             "before siblings augmentation existed.")
     parser.add_argument("--no-reverse-edges", action="store_true", help="Don't include reverse edges")
     parser.add_argument("--clear-existing", action="store_true", help="Clear existing processed files")
     parser.add_argument("--create-splits", action="store_true", help="Create train/val/test splits")
@@ -590,7 +610,8 @@ if __name__ == "__main__":
         embedding_lookup_path=args.embeddings,
         include_ancestors=not args.no_ancestors,
         include_reverse_edges=not args.no_reverse_edges,
-        clear_existing=args.clear_existing
+        clear_existing=args.clear_existing,
+        no_siblings=args.no_siblings
     )
     
     # Create splits if requested

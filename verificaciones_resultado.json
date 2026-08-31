@@ -1,0 +1,20 @@
+{
+  "dataset": "/home/fran/lucai/datos/dataset_HPO_v2",
+  "n_graphs": 522797,
+  "n_genes": 5228,
+  "balance_exacto": false,
+  "check1_x_range": {
+    "min": 0,
+    "max": 20125,
+    "limite": 20125,
+    "grafos_fuera_de_rango": 0
+  },
+  "check2_edge_index": {
+    "grafos_fuera_de_rango": 0
+  },
+  "check3_duplicados": {
+    "grafos_redundantes": 3698,
+    "pct_redundante": 0.7073,
+    "genes_con_duplicados": 1222
+  }
+}

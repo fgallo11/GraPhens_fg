@@ -310,7 +310,7 @@ def main():
     dirs = setup_directories(args)
     
     # Update HPO data if needed
-    update_hpo_if_needed(dirs['hpo'], args.update_hpo)
+    # update_hpo_if_needed(dirs["hpo"], args.update_hpo)  # DESACTIVADO: fijar hp.json 2025-11-24
     
     # Prepare simulation data
     prepare_simulation_data(dirs, args)

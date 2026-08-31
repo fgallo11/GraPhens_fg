@@ -3,3 +3,9 @@ wandb/**
 .cursor/**__pycache__/
 *.pyc
 .ipynb_checkpoints/
+
+# Checkpoints intermedios de entrenamiento (~50MB c/u, decenas por corrida).
+# Nos quedamos solo con best_model.pt + args.json + test_results.json.
+train_*/checkpoint_epoch_*.pt
+smoke_test_*/checkpoint_epoch_*.pt
+training_output/checkpoint_epoch_*.pt
