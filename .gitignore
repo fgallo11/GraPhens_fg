@@ -9,3 +9,9 @@ wandb/**
 train_*/checkpoint_epoch_*.pt
 smoke_test_*/checkpoint_epoch_*.pt
 training_output/checkpoint_epoch_*.pt
+validation_arena/Casos_Bitgenia*.json
+validation_arena/DDD*
+validation_arena/MCRD*
+validation_arena/finetuning_ddd_output/
+validation_bitgenia.csv
+validation_mcrd_new_training_dataset.csv
